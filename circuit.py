@@ -1,4 +1,6 @@
 import rtmidi
+import threading
+import sys
 
 midiin = rtmidi.RtMidiIn()
 
@@ -10,13 +12,31 @@ def print_message(midi):
 	elif midi.isController():
 		print("CC: ", midi.getControllerNumber(), midi.getControllerValue())
 
-#class for accessing functions specific to the novation circuit
-class CircuitController:
+#class for accessing and handling of functions specific to the novation circuit
+#listens on the assigned port and handles messages accordingly
+class CircuitController(threading.Thread):
 	def __init__(self, port):
-		self.port = port
-		self.input = None
-		self.output = None
+		threading.Thread.__init__(self) #threading
+		self.setDaemon(True) #threading
+		self.port = port #the internal midi port
+		self.input = None #object for rtmidiin
+		self.output = None #object for rtmidiout
+		self.passthrough = False #enable if the two devices are not connected outside of the computer running this software
+		self.quit = False #threading
 
+	def connect(self): #open midi port for sending and receiving data
+		self.input = rtmidi.RtMidiIn()
+		self.input.openPort(self.port)
+		self.output = rtmidi.RtMidiOut()
+		self.output.openPort(self.port)
+
+	def run(self):
+		while True:
+			if self.quit:
+				return
+			msg = self.input.getMessage()
+			if msg:
+				print_message(msg)
 
 
 ports = range(midiin.getPortCount())
@@ -27,10 +47,10 @@ if ports:
 			if "Circuit" in midiin.getPortName(i):
 				selected = i
 	print("Oeffne Port ", selected)
-	midiin.openPort(selected)
-	while True:
-		m = midiin.getMessage(250)
-		if m:
-			print_message(m)
-else:
-	print("Keine Ports gefunden :(")
+	circuit = CircuitController(selected)
+	circuit.connect()
+	circuit.start()
+
+
+	sys.stdin.read(1)
+	circuit.quit = True
