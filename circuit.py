@@ -360,7 +360,7 @@ class PatchRequester(threading.Thread):
 				return
 			if self.requestSynths:
 				self.requestCurrentPatch(0)
-				time.sleep(0.6)
+				time.sleep(0.2)
 				self.requestCurrentPatch(1)
 				self.requestSynths = False
 
