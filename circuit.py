@@ -331,6 +331,7 @@ class SynthController():
 			counter = counter + 1
 
 	def dumpCC(self, output):
+		print("Sending patch data from synth",self.id + 1, "as CC")
 		for parameter in self.config:
 			if self.config[parameter]["CC"].isdigit():
 				message = rtmidi.MidiMessage.controllerEvent(self.id + 1, int(self.config[parameter]["CC"]), int(self.config[parameter]["value"]))
@@ -349,6 +350,7 @@ class PatchRequester(threading.Thread):
 		self.quit = False #threading
 
 	def requestCurrentPatch(self, synth):
+		print("Requesting patch data for synth", synth + 1)
 		message = rtmidi.MidiMessage.createSysExMessage(bytes([0, 32, 41, 1, 96, 64, synth])) #Sysex Message requesting current patch dump
 		circuit.output.sendMessage(message) #send sysex to circuit
 
@@ -385,17 +387,18 @@ class CircuitController(threading.Thread):
 		self.output.openPort(self.port)
 
 	def handleMessage(self, msg):
-		print(msg)
 		if msg.isProgramChange(): #request patch data for both synths on session change
 			requester.requestSynths = True
 		if msg.isController(): #ignoring note and timing messages for now
 			if self.passthrough:
 				bcf2000.output.sendMessage(msg)	#send message to BCF2000
 		elif msg.isSysEx():
-			if msg.getSysExData()[7] == 0: #patch data for synth 1 received
+			if msg.getSysExData()[6] == 0: #patch data for synth 1 received
+				print("Patch Data for synth 1 received")
 				synth1.parsePatch(msg.getSysExData()[8:])
 				synth1.dumpCC(bcf2000.output)
 			else:#patch data for synth 2 received
+				print("Patch Data for synth 2 received")
 				synth2.parsePatch(msg.getSysExData()[8:])
 				synth2.dumpCC(bcf2000.output)
 
@@ -406,7 +409,6 @@ class CircuitController(threading.Thread):
 			msg = self.input.getMessage() #listens for messages
 			if msg:
 				self.handleMessage(msg)
-				#print_message(msg)
 
 
 #class which represents the midi controller for communication
@@ -429,8 +431,10 @@ class BCFController(threading.Thread):
 
 	def handleMessage(self, msg):
 		if msg.isNoteOn():
-			if msg.getNoteNumber == 0 and msg.getChannel() == 16: #emit a 0-note on channel 16 from the midi controller to request an update
-				requester.requestSynths = True
+			if msg.getNoteNumber == 0 and msg.getChannel() == 16: #emit a 0-note on channel 16 from the midi controller to request an update on synth 1
+				requester.requestCurrentPatch(0)
+			if msg.getNoteNumber == 1 and msg.getChannel() == 16: #emit a 1-note on channel 16 from the midi controller to request an update on synth 2
+				requester.requestCurrentPatch(1)
 		if msg.isController(): #ignoring note and timing messages for now
 			if self.passthrough:
 				circuit.output.sendMessage(msg) #send message to circuit
