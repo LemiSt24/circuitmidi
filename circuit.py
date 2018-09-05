@@ -1,6 +1,7 @@
 import rtmidi
 import threading
 import sys
+import time
 
 midiin = rtmidi.RtMidiIn()
 
