@@ -30,11 +30,19 @@ class CircuitController(threading.Thread):
 		self.output = rtmidi.RtMidiOut()
 		self.output.openPort(self.port)
 
+	def handleMessage(self, msg):
+		if msg.isController(): #ignoring note and timing messages for now
+			if self.passthrough:
+				#send message to BCF2000
+		elif msg.isSysEx():
+			patchData = self.unpackPatch(msg)
+			#send patch data to BCF2000
+
 	def run(self):
 		while True:
 			if self.quit:
 				return
-			msg = self.input.getMessage()
+			msg = self.input.getMessage() #listens for messages
 			if msg:
 				print_message(msg)
 
